@@ -55,7 +55,10 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
 }
 
 pub fn init(boot_info: &'static bootloader::BootInfo) {
-    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    const PHYS_OFFSET: u64 = 0xffff_8000_0000_0000;
+    let phys_mem_offset = VirtAddr::new(PHYS_OFFSET);
+
+    //let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mapper = unsafe { init_mapper(phys_mem_offset) };
     let frame_allocator = unsafe {
         BootInfoFrameAllocator::init(&boot_info.memory_map)

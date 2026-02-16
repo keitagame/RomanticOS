@@ -204,7 +204,7 @@ pub fn spawn_process(entry_point: u64) -> usize {
             .expect("Failed to allocate user stack");
         
         let process = Process::new(entry_point)
-            .with_user_stack(stack_addr + 0x4000); // スタックトップ
+            .with_user_stack(stack_addr + 0x4000u64); // スタックトップ
         
         manager.add_process(process)
     } else {
