@@ -1,5 +1,8 @@
 use alloc::collections::VecDeque;
+
+use alloc::vec;
 use alloc::vec::Vec;
+
 use alloc::boxed::Box;
 use spin::Mutex;
 use x86_64::VirtAddr;
@@ -272,12 +275,12 @@ pub mod scheduler {
 }
 
 // コンテキストスイッチ用のアセンブリ関数
-#[naked]
+#[unsafe(naked)]
 pub unsafe extern "C" fn switch_context(
     old_context: *mut ProcessContext,
     new_context: *const ProcessContext,
 ) {
-    core::arch::asm!(
+    core::arch::naked_asm!(
         // 現在のコンテキストを保存
         "mov [rdi + 0x00], rsp",
         "mov [rdi + 0x08], rbp",
@@ -315,6 +318,6 @@ pub unsafe extern "C" fn switch_context(
         "mov rsi, [rsi + 0x30]",
         
         "ret",
-        options(noreturn)
+        //options(noreturn)
     );
 }
