@@ -143,14 +143,21 @@ impl ProcessManager {
 
     pub fn schedule(&mut self) -> Option<&mut Process> {
         self.scheduler_ticks += 1;
+let pid = if let Some(current) = self.get_current_process_mut() {
+    current.pid
+} else {
+    return None;
+};
+
+self.ready_queue.push_back(pid);
 
         // 現在のプロセスをReadyに戻す
-        if let Some(current) = self.get_current_process_mut() {
-            if current.state == ProcessState::Running {
-                current.state = ProcessState::Ready;
-                self.ready_queue.push_back(current.pid);
-            }
-        }
+        //if let Some(current) = self.get_current_process_mut() {
+            //if current.state == ProcessState::Running {
+             //   current.state = ProcessState::Ready;
+             //   self.ready_queue.push_back(current.pid);
+           // }
+       // }
 
         // 次のプロセスを選択
         while let Some(pid) = self.ready_queue.pop_front() {

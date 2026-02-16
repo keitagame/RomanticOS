@@ -1,6 +1,7 @@
 use core::fmt;
 use spin::Mutex;
-use volatile::Volatile;
+//use volatile::Volatile;
+use core::ptr::{write_volatile, read_volatile};
 
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
@@ -48,7 +49,8 @@ struct ScreenChar {
 
 #[repr(transparent)]
 struct Buffer {
-    chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
+    chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT],
+    //chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
 pub struct Writer {
@@ -70,10 +72,22 @@ impl Writer {
                 let col = self.column_position;
 
                 let color_code = self.color_code;
-                self.buffer.chars[row][col].write(ScreenChar {
-                    ascii_character: byte,
-                    color_code,
-                });
+                use core::ptr::write_volatile;
+
+unsafe {
+    write_volatile(
+        &mut self.buffer.chars[row][col],
+        ScreenChar {
+            ascii_character: byte,
+            color_code: self.color_code,
+        },
+    );
+}
+
+                //self.buffer.chars[row][col].write(ScreenChar {
+                //    ascii_character: byte,
+                //    color_code,
+                //});
                 self.column_position += 1;
             }
         }
@@ -91,8 +105,17 @@ impl Writer {
     fn new_line(&mut self) {
         for row in 1..BUFFER_HEIGHT {
             for col in 0..BUFFER_WIDTH {
-                let character = self.buffer.chars[row][col].read();
-                self.buffer.chars[row - 1][col].write(character);
+use core::ptr::read_volatile;
+
+let character = unsafe {
+    read_volatile(&self.buffer.chars[row][col])
+};
+unsafe {
+    write_volatile(&mut self.buffer.chars[row - 1][col], character);
+}
+
+                //let character = self.buffer.chars[row][col].read();
+                //self.buffer.chars[row - 1][col].write(character);
             }
         }
         self.clear_row(BUFFER_HEIGHT - 1);
@@ -105,7 +128,11 @@ impl Writer {
             color_code: self.color_code,
         };
         for col in 0..BUFFER_WIDTH {
-            self.buffer.chars[row][col].write(blank);
+unsafe {
+    write_volatile(&mut self.buffer.chars[row][col], blank);
+}
+
+            //self.buffer.chars[row][col].write(blank);
         }
     }
 
