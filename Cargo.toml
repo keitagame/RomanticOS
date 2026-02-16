@@ -1,0 +1,38 @@
+[package]
+name = "rust-os-kernel"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bootloader = "0.9"
+spin = "0.9"
+x86_64 = "0.14"
+uart_16550 = "0.2"
+pic8259 = "0.10"
+pc-keyboard = "0.7"
+linked_list_allocator = "0.10"
+lazy_static = { version = "1.4", features = ["spin_no_std"] }
+volatile = "0.4"
+
+[dependencies.alloc]
+package = "rustc-std-workspace-alloc"
+version = "1.0.0"
+optional = false
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
+[[bin]]
+name = "rust-os-kernel"
+path = "src/main.rs"
+
+[package.metadata.bootimage]
+build-command = ["build"]
+run-command = ["qemu-system-x86_64", 
+    "-drive", "format=raw,file={}",
+    "-serial", "stdio",
+    "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04"
+]
