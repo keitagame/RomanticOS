@@ -38,6 +38,7 @@ impl ColorCode {
     }
 }
 
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 struct ScreenChar {
