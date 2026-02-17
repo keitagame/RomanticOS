@@ -115,7 +115,8 @@ pub fn init_heap() -> Result<(), &'static str> {
     }
 
     unsafe {
-        ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
+        ALLOCATOR.lock().init(HEAP_START as *mut u8, HEAP_SIZE);
+        //ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
     }
 
     Ok(())
@@ -155,7 +156,11 @@ fn find_free_pages(count: usize) -> Option<Page> {
 pub fn deallocate_pages(addr: VirtAddr, count: usize) {
     let mut manager = MEMORY_MANAGER.lock();
     if let Some(manager) = manager.as_mut() {
-        let start_page = Page::containing_address(addr);
+        use x86_64::structures::paging::Size4KiB;
+
+        let start_page: Page<Size4KiB> = Page::containing_address(addr);
+
+        //let start_page = Page::containing_address(addr);
         
         for i in 0..count {
             let page = start_page + i as u64;

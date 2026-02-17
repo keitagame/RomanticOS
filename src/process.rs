@@ -160,17 +160,29 @@ self.ready_queue.push_back(pid);
        // }
 
         // 次のプロセスを選択
-        while let Some(pid) = self.ready_queue.pop_front() {
-            if let Some(process) = self.processes.iter_mut().find(|p| p.pid == pid) {
-                if process.state == ProcessState::Ready {
-                    process.state = ProcessState::Running;
-                    self.current_pid = Some(pid);
-                    return Some(process);
-                }
-            }
-        }
+        //while let Some(pid) = self.ready_queue.pop_front() {
+         //   if let Some(process) = self.processes.iter_mut().find(|p| p.pid == pid) {
+        //        if process.state == ProcessState::Ready {
+        //            process.state = ProcessState::Running;
+         //           self.current_pid = Some(pid);
+         //           return Some(process);
+         //       }
+         //   }
+       // }
 
-        None
+       // None
+       while let Some(pid) = self.ready_queue.pop_front() {
+    if let Some(index) = self.processes.iter().position(|p| p.pid == pid) {
+        if self.processes[index].state == ProcessState::Ready {
+            self.processes[index].state = ProcessState::Running;
+            self.current_pid = Some(pid);
+            return Some(&mut self.processes[index]);
+        }
+    }
+}
+
+None
+
     }
 
     pub fn terminate_current(&mut self) {

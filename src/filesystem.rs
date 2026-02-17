@@ -34,7 +34,7 @@ impl FileMode {
         }
     }
 }
-
+#[derive(Clone)]
 pub struct Inode {
     pub inode_num: usize,
     pub file_type: FileType,
@@ -67,7 +67,7 @@ impl Inode {
         }
     }
 }
-
+#[derive(Clone)]
 pub struct OpenFile {
     pub inode: usize,
     pub offset: usize,
