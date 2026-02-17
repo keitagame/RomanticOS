@@ -27,7 +27,7 @@ run-debug:
 debug-gdb:
 	@echo "Starting QEMU with GDB server..."
 	@qemu-system-x86_64 \
-		-drive format=raw,file=target/x86_64-unknown-none/debug/bootimage-rust-os-kernel.bin \
+		-drive format=raw,file=target/x86_64-unknown-none/debug/rust-os-kernel \
 		-serial stdio \
 		-s -S
 
