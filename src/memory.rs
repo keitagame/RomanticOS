@@ -8,6 +8,16 @@ use x86_64::{
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 use linked_list_allocator::LockedHeap;
 use spin::Mutex;
+//use x86_64::structures::paging::{FrameAllocator, PhysFrame, Size4KiB};
+
+/// 何もフレームを返さない空のアロケータ
+pub struct EmptyFrameAllocator;
+
+unsafe impl FrameAllocator<Size4KiB> for EmptyFrameAllocator {
+    fn allocate_frame(&mut self) -> Option<PhysFrame> {
+        None
+    }
+}
 
 pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
@@ -16,11 +26,15 @@ pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 static MEMORY_MANAGER: Mutex<Option<MemoryManager>> = Mutex::new(None);
-
 pub struct MemoryManager {
-    mapper: OffsetPageTable<'static>,
-    frame_allocator: BootInfoFrameAllocator,
+    pub mapper: OffsetPageTable<'static>,
+    pub frame_allocator: EmptyFrameAllocator,
 }
+
+//pub struct MemoryManager {
+//    mapper: OffsetPageTable<'static>,
+ //   frame_allocator: BootInfoFrameAllocator,
+//}
 
 pub struct BootInfoFrameAllocator {
     memory_map: &'static MemoryMap,
@@ -53,18 +67,16 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
         frame
     }
 }
-
-pub fn init(boot_info: &'static bootloader::BootInfo) {
+pub fn init() {
     const PHYS_OFFSET: u64 = 0xffff_8000_0000_0000;
     let phys_mem_offset = VirtAddr::new(PHYS_OFFSET);
 
-    //let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mapper = unsafe { init_mapper(phys_mem_offset) };
-    let frame_allocator = unsafe {
-        BootInfoFrameAllocator::init(&boot_info.memory_map)
-    };
 
-    let mut manager = MemoryManager {
+    // フレームアロケータは仮のものにする
+    let frame_allocator = EmptyFrameAllocator;
+
+    let manager = MemoryManager {
         mapper,
         frame_allocator,
     };

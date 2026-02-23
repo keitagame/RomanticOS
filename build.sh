@@ -65,6 +65,9 @@ build() {
     echo ""
     echo -e "${YELLOW}Building kernel...${NC}"
     cargo build --release
+    cp target/x86_64-unknown-none/release/rust-os-kernel iso/boot/kernel.elf
+    grub-mkrescue -o rustos.iso iso
+    qemu-system-x86_64 -cdrom rustos.iso
     echo -e "${GREEN}✓ Build complete${NC}"
 }
 
@@ -87,6 +90,8 @@ run() {
 # クリーン
 clean() {
     echo -e "${YELLOW}Cleaning build artifacts...${NC}"
+    rm -f rustos.iso
+    rm -f iso/boot/kernel.elf
     cargo clean
     echo -e "${GREEN}✓ Clean complete${NC}"
 }

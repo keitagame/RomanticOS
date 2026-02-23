@@ -1,12 +1,13 @@
+
 #![no_std]
 #![no_main]
-
 
 #![feature(custom_test_frameworks)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
-
+mod boot;
 extern crate alloc;
+
 
 use core::panic::PanicInfo;
 
@@ -19,11 +20,23 @@ mod interrupts;
 mod gdt;
 mod demo;
 
-use bootloader::{BootInfo, entry_point};
 
-entry_point!(kernel_main);
+#[no_mangle]
+pub extern "C" fn _start(multiboot_magic: u32, multiboot_info_addr: u32) -> ! {
+    unsafe { let vga = 0xb8000 as *mut u8; *vga = b'H'; *vga.add(1) = 0x0f; }
+    println!("RustOS Kernel v0.1.0");
+    println!("Booted via GRUB (Multiboot2)");
 
-fn kernel_main(boot_info: &'static BootInfo) -> ! {
+    // 必要なら multiboot_info_addr をパースしてメモリマップを取得できる
+    // まずは boot_info を使わずに固定初期化でOK
+
+    kernel_main();
+}
+
+
+//entry_point!(kernel_main);
+
+fn kernel_main() -> ! {
     println!("RustOS Kernel v0.1.0");
     println!("Initializing...");
 
@@ -36,7 +49,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("[OK] IDT initialized");
 
     // メモリ管理初期化
-    memory::init(boot_info);
+    memory::init();
     println!("[OK] Memory management initialized");
 
     // ヒープアロケータ初期化
@@ -71,7 +84,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // スケジューラ開始
     process::scheduler::start();
 
-    // ここには到達しない
+    // ここには到達しないbo
     loop {
         x86_64::instructions::hlt();
     }
