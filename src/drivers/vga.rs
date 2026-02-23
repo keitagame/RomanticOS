@@ -1,7 +1,5 @@
 use core::fmt;
-use spin::Mutex;
-//use volatile::Volatile;
-use core::ptr::{write_volatile, read_volatile};
+use core::ptr::{read_volatile, write_volatile};
 
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
@@ -39,7 +37,6 @@ impl ColorCode {
     }
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 struct ScreenChar {
@@ -47,132 +44,117 @@ struct ScreenChar {
     color_code: ColorCode,
 }
 
-#[repr(transparent)]
-struct Buffer {
-    chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT],
-    //chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
+static mut CURSOR_COL: usize = 0;
+static mut CURSOR_ROW: usize = 0;
+static mut CURRENT_COLOR: ColorCode = ColorCode(0x0f); // 白 on 黒
+
+fn vga_ptr() -> *mut ScreenChar {
+    VGA_BUFFER as *mut ScreenChar
 }
 
-pub struct Writer {
-    column_position: usize,
-    color_code: ColorCode,
-    buffer: &'static mut Buffer,
+fn index(row: usize, col: usize) -> usize {
+    row * BUFFER_WIDTH + col
 }
 
-impl Writer {
-    pub fn write_byte(&mut self, byte: u8) {
-        match byte {
-            b'\n' => self.new_line(),
-            byte => {
-                if self.column_position >= BUFFER_WIDTH {
-                    self.new_line();
-                }
-
-                let row = BUFFER_HEIGHT - 1;
-                let col = self.column_position;
-
-                let color_code = self.color_code;
-                use core::ptr::write_volatile;
-
-unsafe {
-    write_volatile(
-        &mut self.buffer.chars[row][col],
-        ScreenChar {
-            ascii_character: byte,
-            color_code: self.color_code,
-        },
-    );
-}
-
-                //self.buffer.chars[row][col].write(ScreenChar {
-                //    ascii_character: byte,
-                //    color_code,
-                //});
-                self.column_position += 1;
-            }
-        }
+fn put_char(row: usize, col: usize, ch: ScreenChar) {
+    unsafe {
+        let ptr = vga_ptr().add(index(row, col));
+        write_volatile(ptr, ch);
     }
-
-    pub fn write_string(&mut self, s: &str) {
-        for byte in s.bytes() {
-            match byte {
-                0x20..=0x7e | b'\n' => self.write_byte(byte),
-                _ => self.write_byte(0xfe),
-            }
-        }
-    }
-
-    fn new_line(&mut self) {
-        for row in 1..BUFFER_HEIGHT {
-            for col in 0..BUFFER_WIDTH {
-use core::ptr::read_volatile;
-
-let character = unsafe {
-    read_volatile(&self.buffer.chars[row][col])
-};
-unsafe {
-    write_volatile(&mut self.buffer.chars[row - 1][col], character);
 }
 
-                //let character = self.buffer.chars[row][col].read();
-                //self.buffer.chars[row - 1][col].write(character);
-            }
-        }
-        self.clear_row(BUFFER_HEIGHT - 1);
-        self.column_position = 0;
+fn get_char(row: usize, col: usize) -> ScreenChar {
+    unsafe {
+        let ptr = vga_ptr().add(index(row, col));
+        read_volatile(ptr)
     }
+}
 
-    fn clear_row(&mut self, row: usize) {
-        let blank = ScreenChar {
-            ascii_character: b' ',
-            color_code: self.color_code,
-        };
+fn clear_row(row: usize) {
+    let blank = ScreenChar {
+        ascii_character: b' ',
+        color_code: unsafe { CURRENT_COLOR },
+    };
+    for col in 0..BUFFER_WIDTH {
+        put_char(row, col, blank);
+    }
+}
+
+fn scroll_up() {
+    for row in 1..BUFFER_HEIGHT {
         for col in 0..BUFFER_WIDTH {
-unsafe {
-    write_volatile(&mut self.buffer.chars[row][col], blank);
-}
-
-            //self.buffer.chars[row][col].write(blank);
+            let ch = get_char(row, col);
+            put_char(row - 1, col, ch);
         }
     }
+    clear_row(BUFFER_HEIGHT - 1);
+}
 
-    pub fn clear_screen(&mut self) {
-        for row in 0..BUFFER_HEIGHT {
-            self.clear_row(row);
+fn new_line() {
+    unsafe {
+        if CURSOR_ROW < BUFFER_HEIGHT - 1 {
+            CURSOR_ROW += 1;
+            CURSOR_COL = 0;
+        } else {
+            scroll_up();
+            CURSOR_COL = 0;
         }
-        self.column_position = 0;
-    }
-
-    pub fn set_color(&mut self, foreground: Color, background: Color) {
-        self.color_code = ColorCode::new(foreground, background);
     }
 }
 
-impl fmt::Write for Writer {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.write_string(s);
-        Ok(())
+fn write_byte(byte: u8) {
+    unsafe {
+        match byte {
+            b'\n' => new_line(),
+            byte => {
+                if CURSOR_COL >= BUFFER_WIDTH {
+                    new_line();
+                }
+                let row = CURSOR_ROW;
+                let col = CURSOR_COL;
+                let ch = ScreenChar {
+                    ascii_character: byte,
+                    color_code: CURRENT_COLOR,
+                };
+                put_char(row, col, ch);
+                CURSOR_COL += 1;
+            }
+        }
     }
 }
 
-lazy_static::lazy_static! {
-    pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
-        column_position: 0,
-        color_code: ColorCode::new(Color::White, Color::Black),
-        buffer: unsafe { &mut *(VGA_BUFFER as *mut Buffer) },
-    });
+fn write_str_impl(s: &str) {
+    for b in s.bytes() {
+        match b {
+            0x20..=0x7e | b'\n' => write_byte(b),
+            _ => write_byte(0xfe),
+        }
+    }
 }
 
 pub fn init() {
-    WRITER.lock().clear_screen();
+    unsafe {
+        CURRENT_COLOR = ColorCode::new(Color::White, Color::Black);
+        CURSOR_COL = 0;
+        CURSOR_ROW = 0;
+    }
+    for row in 0..BUFFER_HEIGHT {
+        clear_row(row);
+    }
+}
+
+struct Writer;
+
+impl fmt::Write for Writer {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        write_str_impl(s);
+        Ok(())
+    }
 }
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    use x86_64::instructions::interrupts;
-
-    interrupts::without_interrupts(|| {
-        WRITER.lock().write_fmt(args).unwrap();
-    });
+    let mut w = Writer;
+    let _ = w.write_fmt(args); // エラーは握りつぶす（panic させない）
 }

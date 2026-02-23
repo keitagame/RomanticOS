@@ -22,15 +22,18 @@ mod demo;
 
 
 #[no_mangle]
-pub extern "C" fn _start(multiboot_magic: u32, multiboot_info_addr: u32) -> ! {
-    unsafe { let vga = 0xb8000 as *mut u8; *vga = b'H'; *vga.add(1) = 0x0f; }
+pub extern "C" fn _start(_magic: u32, _info: u32) -> ! {
+    // unsafe { let vga = 0xb8000 as *mut u8; *vga = b'H'; *vga.add(1) = 0x0f; }
+    
+    drivers::vga::init();
     println!("RustOS Kernel v0.1.0");
     println!("Booted via GRUB (Multiboot2)");
 
     // 必要なら multiboot_info_addr をパースしてメモリマップを取得できる
     // まずは boot_info を使わずに固定初期化でOK
-
+    //loop { x86_64::instructions::hlt(); }
     kernel_main();
+    
 }
 
 
